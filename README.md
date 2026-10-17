@@ -1,4 +1,4 @@
-# 🎲 Ship, Captain & Crew
+# 🎲 1-4-24
 
 A browser dice game you can host on GitHub Pages — no build step, just `index.html`.
 
@@ -6,12 +6,11 @@ A browser dice game you can host on GitHub Pages — no build step, just `index.
 
 ## How to play
 
-- Each player gets up to **3 rolls** of five dice.
-- You need a **6 (Ship)**, then a **5 (Captain)**, then a **4 (Crew)**, in that order. They lock automatically.
-- The two leftover dice are your **cargo**; their total is your score. Keep it or re-roll the cargo with any rolls left.
-- No crew after three rolls = no score.
+- Roll **six dice**. After every roll you must **keep at least one** die, then roll the rest, until all six are kept.
+- To qualify you need a **1** and a **4** among your kept dice.
+- Your score is the total of the **other four** dice. The best possible hand is 1-4-6-6-6-6 = **24**.
 - A die that flies off the table costs the shooter $1, and that roll doesn't count. The odds are adjustable, and there's a button for real-life spills.
-- High cargo wins the pot. Ties or no qualifiers carry the pot over to the next round.
+- High score wins the pot. Ties or no qualifiers carry the pot over to the next round.
 
 Players, money and the pot are saved in your browser (`localStorage`).
 
