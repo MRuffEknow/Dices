@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ship, Captain &amp; Crew</title>
+<meta name="description" content="Ship, Captain & Crew — the classic bar dice game. Everyone antes a dollar; roll it off the table and it costs you another.">
+<style>
+  :root {
+    --felt: #0f5132;
+    --felt-dark: #0a3b24;
+    --rail: #5a3a1e;
+    --ink: #f4f1e8;
+    --muted: #b9c9bd;
+    --gold: #f2c14e;
+    --red: #e05a47;
+    --die: #fdfcf7;
+    --pip: #1b1b1b;
+    --panel: rgba(0, 0, 0, .25);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  html { background: var(--felt-dark); }
+  body {
+    font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--ink);
+    background: var(--felt-dark) radial-gradient(ellipse at top, var(--felt) 0%, var(--felt-dark) 70%) no-repeat;
+    min-height: 100vh;
+  }
+  main { max-width: 900px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; letter-spacing: .5px; }
+  h2 { font-size: 1.1rem; margin: 0 0 8px; }
+  .sub { color: var(--muted); margin: 0 0 16px; }
+  .panel { background: var(--panel); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  button {
+    font: inherit; cursor: pointer; border: 0; border-radius: 8px;
+    padding: 10px 16px; background: var(--gold); color: #2a1d00; font-weight: 600;
+  }
+  button.secondary { background: rgba(255,255,255,.15); color: var(--ink); }
+  button.danger { background: var(--red); color: #fff; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  input[type=text] {
+    font: inherit; padding: 9px 12px; border-radius: 8px; border: 0; min-width: 0; flex: 1;
+  }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .spacer { flex: 1; }
+
+  /* Pot */
+  .pot { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .pot .amt { font-size: 2.4rem; font-weight: 800; color: var(--gold); }
+  .pot .note { color: var(--muted); }
+
+  /* Table / dice */
+  .table {
+    border: 10px solid var(--rail); border-radius: 24px;
+    background: radial-gradient(ellipse at center, #17734a, #0d4d2f);
+    padding: 20px 12px; min-height: 150px; position: relative; overflow: hidden;
+  }
+  .dice { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .die {
+    width: 58px; height: 58px; background: var(--die); border-radius: 10px;
+    display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); padding: 7px;
+    box-shadow: 0 4px 0 #cfcab8, 0 6px 10px rgba(0,0,0,.4); position: relative;
+    transition: transform .2s;
+  }
+  .die .p { width: 11px; height: 11px; border-radius: 50%; background: var(--pip); place-self: center; visibility: hidden; }
+  .die.locked { outline: 3px solid var(--gold); outline-offset: 3px; }
+  .die .tag {
+    position: absolute; bottom: -24px; left: 50%; transform: translateX(-50%);
+    font-size: .7rem; text-transform: uppercase; letter-spacing: .5px; color: var(--gold); white-space: nowrap;
+  }
+  .die.blank { background: rgba(255,255,255,.12); box-shadow: none; }
+  .die.rolling { animation: tumble .45s ease-out; }
+  .die.offtable { animation: fly .8s ease-in forwards; }
+  @keyframes tumble {
+    0% { transform: translateY(-30px) rotate(-200deg); }
+    70% { transform: translateY(4px) rotate(10deg); }
+    100% { transform: none; }
+  }
+  @keyframes fly {
+    0% { transform: none; opacity: 1; }
+    100% { transform: translate(260px, -160px) rotate(540deg); opacity: 0; }
+  }
+  .dice-wrap { padding-bottom: 26px; }
+  .status { text-align: center; margin-top: 12px; min-height: 1.5em; font-weight: 600; }
+  .status.bad { color: #ffb4a8; }
+  .status.good { color: var(--gold); }
+  .controls { justify-content: center; margin-top: 14px; }
+  .rolls-left { text-align: center; color: var(--muted); margin-top: 6px; font-size: .9rem; }
+
+  /* Players */
+  table.players { width: 100%; border-collapse: collapse; }
+  table.players th, table.players td { padding: 8px 6px; text-align: left; border-bottom: 1px solid rgba(255,255,255,.1); }
+  table.players th { color: var(--muted); font-weight: 500; font-size: .85rem; }
+  table.players td.num, table.players th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  table.players tr.current td { background: rgba(242,193,78,.15); }
+  .neg { color: #ffb4a8; }
+  .pos { color: #a6f0b8; }
+  .x { background: none; color: var(--muted); padding: 2px 8px; font-weight: 400; }
+
+  .log { max-height: 220px; overflow-y: auto; font-size: .9rem; color: var(--muted); margin: 0; padding-left: 18px; }
+  .log li { margin-bottom: 2px; }
+  details summary { cursor: pointer; font-weight: 600; }
+  details p, details li { color: var(--muted); }
+  label { color: var(--muted); }
+  .hidden { display: none !important; }
+
+  @media (max-width: 480px) {
+    .die { width: 48px; height: 48px; padding: 6px; }
+    .die .p { width: 9px; height: 9px; }
+    .dice { gap: 8px; }
+    .pot .amt { font-size: 2rem; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>🎲 Ship, Captain &amp; Crew</h1>
+  <p class="sub">Everyone antes $1. Roll a die off the table and it's another $1 in the pot.</p>
+
+  <!-- Setup -->
+  <section class="panel" id="setup">
+    <h2>Players</h2>
+    <form class="row" id="add-form">
+      <input type="text" id="new-name" placeholder="Add a player…" maxlength="20" autocomplete="off">
+      <button type="submit" class="secondary">Add</button>
+    </form>
+    <table class="players" id="players-table" style="margin-top:12px">
+      <thead><tr><th>Player</th><th class="num">Score</th><th class="num">Paid in</th><th class="num">Net $</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="row" style="margin-top:12px">
+      <label for="offchance">Chance a die flies off the table:</label>
+      <input type="range" id="offchance" min="0" max="15" step="1" value="4">
+      <span id="offchance-val">4%</span>
+    </div>
+  </section>
+
+  <!-- Pot -->
+  <section class="panel">
+    <div class="pot">
+      <span>Pot</span>
+      <span class="amt" id="pot">$0</span>
+      <span class="note" id="pot-note"></span>
+      <span class="spacer"></span>
+      <button id="start-round">Start round (everyone antes $1)</button>
+    </div>
+  </section>
+
+  <!-- Table -->
+  <section class="panel" id="play">
+    <h2 id="turn-title">Add at least two players, then start a round.</h2>
+    <div class="table">
+      <div class="dice-wrap"><div class="dice" id="dice"></div></div>
+      <div class="status" id="status"></div>
+      <div class="rolls-left" id="rolls-left"></div>
+      <div class="row controls">
+        <button id="roll" disabled>Roll</button>
+        <button id="keep" class="secondary" disabled>Keep cargo</button>
+        <button id="off-table" class="danger" disabled title="Playing with real dice? Charge the shooter $1 when one leaves the table.">Rolled off table! +$1</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Game log</h2>
+    <ol class="log" id="log" reversed></ol>
+    <div class="row" style="margin-top:12px">
+      <span class="spacer"></span>
+      <button id="reset" class="secondary">New game (reset money)</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li>At the start of every round each player puts <strong>$1</strong> in the pot.</li>
+        <li>On your turn you get up to <strong>3 rolls</strong> of five dice.</li>
+        <li>You need a <strong>6 (Ship)</strong>, then a <strong>5 (Captain)</strong>, then a <strong>4 (Crew)</strong> — in that order. A 5 doesn't count until you have your 6, and a 4 doesn't count until you have your 5. They lock automatically.</li>
+        <li>Once you have Ship, Captain &amp; Crew, the other two dice are your <strong>cargo</strong> (their total is your score, 2–12). You can keep it or use any rolls you have left to re-roll the cargo.</li>
+        <li>No crew by the end of your third roll means you score nothing.</li>
+        <li>If a die rolls <strong>off the table</strong>, you put another <strong>$1</strong> in the pot and that roll doesn't count — roll again.</li>
+        <li>Highest cargo takes the pot. A tie or nobody qualifying means the pot <strong>carries over</strong> to the next round.</li>
+      </ul>
+    </details>
+  </section>
+</main>
+
+<script>
+(() => {
+  const SHIP = 6, CAPTAIN = 5, CREW = 4;
+  const ROLLS_PER_TURN = 3;
+  const STORE_KEY = 'scc-dice-v1';
+  const PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
+
+  const $ = (id) => document.getElementById(id);
+
+  let state = load() || freshState();
+
+  function freshState() {
+    return {
+      players: [],         // { name, paid, won, score }
+      pot: 0,
+      carried: false,
+      inRound: false,
+      turn: 0,
+      offChance: 4,
+      log: [],
+      t: null,             // current turn: { dice, locked, rollsLeft, ship, captain, crew, done }
+    };
+  }
+
+  function save() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {}
+  }
+  function load() {
+    try { return JSON.parse(localStorage.getItem(STORE_KEY)); } catch (e) { return null; }
+  }
+
+  const money = (n) => (n < 0 ? '-$' : '$') + Math.abs(n);
+  function log(msg) {
+    state.log.unshift(msg);
+    state.log = state.log.slice(0, 200);
+  }
+
+  // ---------- Rounds & turns ----------
+
+  function startRound() {
+    if (state.players.length < 2) return;
+    state.players.forEach((p) => { p.paid += 1; p.score = null; });
+    state.pot += state.players.length;
+    log(`New round — everyone antes $1. Pot is ${money(state.pot)}.`);
+    state.inRound = true;
+    state.turn = 0;
+    newTurn();
+    render();
+  }
+
+  function newTurn() {
+    state.t = {
+      dice: [0, 0, 0, 0, 0], locked: [null, null, null, null, null],
+      rollsLeft: ROLLS_PER_TURN, ship: false, captain: false, crew: false, done: false,
+      msg: `${current().name}, you're up. Roll for a 6!`, msgClass: '',
+    };
+  }
+
+  const current = () => state.players[state.turn];
+  const cargo = (t) => t.dice.reduce((s, v, i) => (t.locked[i] ? s : s + v), 0);
+
+  function roll() {
+    const t = state.t;
+    if (!state.inRound || t.done || t.rollsLeft <= 0) return;
+    const free = t.locked.map((l, i) => (l ? -1 : i)).filter((i) => i >= 0);
+
+    // Did anything fly off the table?
+    const flew = free.filter(() => Math.random() * 100 < state.offChance);
+    if (flew.length) {
+      offTable(flew);
+      return;
+    }
+
+    free.forEach((i) => { t.dice[i] = 1 + Math.floor(Math.random() * 6); });
+    t.rollsLeft -= 1;
+    lockInOrder(t, free);
+
+    const who = current().name;
+    if (t.crew) {
+      const c = cargo(t);
+      t.msg = `Ship, Captain & Crew! Cargo: ${c}.` + (t.rollsLeft ? ' Keep it or re-roll the cargo.' : '');
+      t.msgClass = 'good';
+      if (!t.rollsLeft) endTurn(c);
+    } else if (!t.rollsLeft) {
+      t.msg = `${who} didn't make it — no score.`;
+      t.msgClass = 'bad';
+      endTurn(0);
+    } else {
+      const need = !t.ship ? 'a 6 (Ship)' : !t.captain ? 'a 5 (Captain)' : 'a 4 (Crew)';
+      t.msg = `Still need ${need}.`;
+      t.msgClass = '';
+    }
+    render(free);
+  }
+
+  // Lock 6, then 5, then 4 — only in order, and possibly all from the same roll.
+  function lockInOrder(t, free) {
+    const grab = (value, label) => {
+      const i = free.find((j) => !t.locked[j] && t.dice[j] === value);
+      if (i === undefined) return false;
+      t.locked[i] = label;
+      return true;
+    };
+    if (!t.ship) t.ship = grab(SHIP, 'Ship');
+    if (t.ship && !t.captain) t.captain = grab(CAPTAIN, 'Captain');
+    if (t.captain && !t.crew) t.crew = grab(CREW, 'Crew');
+  }
+
+  function offTable(flewIdx) {
+    const p = current();
+    const n = flewIdx ? flewIdx.length : 1;
+    p.paid += n;
+    state.pot += n;
+    const what = n === 1 ? 'A die' : `${n} dice`;
+    state.t.msg = `${what} flew off the table! ${p.name} puts ${money(n)} in the pot. Roll again.`;
+    state.t.msgClass = 'bad';
+    log(`${p.name} rolled ${n === 1 ? 'a die' : n + ' dice'} off the table (+${money(n)}). Pot is ${money(state.pot)}.`);
+    render(null, flewIdx);
+  }
+
+  function keep() {
+    const t = state.t;
+    if (!t || !t.crew || t.done) return;
+    endTurn(cargo(t));
+    render();
+  }
+
+  function endTurn(score) {
+    const p = current();
+    p.score = score;
+    state.t.done = true;
+    log(score ? `${p.name} scored ${score}.` : `${p.name} scored nothing.`);
+    setTimeout(nextTurn, 1100);
+  }
+
+  function nextTurn() {
+    if (!state.inRound) return;
+    if (state.turn < state.players.length - 1) {
+      state.turn += 1;
+      newTurn();
+    } else {
+      finishRound();
+    }
+    render();
+  }
+
+  function finishRound() {
+    state.inRound = false;
+    const best = Math.max(...state.players.map((p) => p.score || 0));
+    const winners = state.players.filter((p) => best > 0 && p.score === best);
+    if (winners.length === 1) {
+      const w = winners[0];
+      w.won += state.pot;
+      log(`🏆 ${w.name} wins ${money(state.pot)} with cargo ${best}!`);
+      state.t.msg = `🏆 ${w.name} wins ${money(state.pot)}!`;
+      state.t.msgClass = 'good';
+      state.pot = 0;
+      state.carried = false;
+    } else {
+      const why = best === 0 ? 'Nobody made crew' : `Tie at ${best} (${winners.map((w) => w.name).join(', ')})`;
+      log(`${why} — pot of ${money(state.pot)} carries over.`);
+      state.t.msg = `${why}. The pot carries over!`;
+      state.t.msgClass = '';
+      state.carried = true;
+    }
+    // Rotate who shoots first next round.
+    state.players.push(state.players.shift());
+  }
+
+  // ---------- Rendering ----------
+
+  function dieEl(value, lockLabel, anim) {
+    const d = document.createElement('div');
+    d.className = 'die' + (value ? '' : ' blank') + (lockLabel ? ' locked' : '') + (anim ? ' ' + anim : '');
+    for (let i = 0; i < 9; i++) {
+      const p = document.createElement('span');
+      p.className = 'p';
+      if (value && PIPS[value].includes(i)) p.style.visibility = 'visible';
+      d.appendChild(p);
+    }
+    if (lockLabel) {
+      const tag = document.createElement('span');
+      tag.className = 'tag';
+      tag.textContent = lockLabel;
+      d.appendChild(tag);
+    }
+    return d;
+  }
+
+  function render(rolled, flew) {
+    // Players
+    const tbody = $('players-table').tBodies[0];
+    tbody.innerHTML = '';
+    state.players.forEach((p, i) => {
+      const tr = document.createElement('tr');
+      if (state.inRound && i === state.turn) tr.className = 'current';
+      const net = p.won - p.paid;
+      const cells = [
+        p.name + (state.inRound && i === state.turn ? ' 🎲' : ''),
+        p.score == null ? '–' : p.score || '✗',
+        money(p.paid),
+        money(net),
+      ];
+      cells.forEach((c, ci) => {
+        const td = document.createElement('td');
+        td.textContent = c;
+        if (ci > 0) td.className = 'num';
+        if (ci === 3) td.classList.add(net < 0 ? 'neg' : net > 0 ? 'pos' : 'x');
+        tr.appendChild(td);
+      });
+      const td = document.createElement('td');
+      td.className = 'num';
+      if (!state.inRound) {
+        const rm = document.createElement('button');
+        rm.className = 'x';
+        rm.textContent = '✕';
+        rm.title = `Remove ${p.name}`;
+        rm.onclick = () => { state.players.splice(i, 1); save(); render(); };
+        td.appendChild(rm);
+      }
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+    });
+
+    // Pot
+    $('pot').textContent = money(state.pot);
+    $('pot-note').textContent = state.carried && state.pot ? 'carried over' : '';
+    $('start-round').disabled = state.inRound || state.players.length < 2;
+    $('start-round').textContent = state.players.length < 2
+      ? 'Need at least 2 players'
+      : `Start round (everyone antes $1)`;
+
+    // Table
+    const t = state.t;
+    const diceBox = $('dice');
+    diceBox.innerHTML = '';
+    const dice = t ? t.dice : [0, 0, 0, 0, 0];
+    dice.forEach((v, i) => {
+      let anim = '';
+      if (flew && flew.includes(i)) anim = 'offtable';
+      else if (rolled && rolled.includes(i)) anim = 'rolling';
+      diceBox.appendChild(dieEl(flew && flew.includes(i) ? (v || 1 + Math.floor(Math.random() * 6)) : v, t && t.locked[i], anim));
+    });
+
+    const p = state.inRound ? current() : null;
+    $('turn-title').textContent = p
+      ? `${p.name}'s turn`
+      : state.players.length < 2 ? 'Add at least two players, then start a round.' : 'Ready when you are — start a round.';
+    $('status').textContent = t ? t.msg : '';
+    $('status').className = 'status ' + (t ? t.msgClass : '');
+    $('rolls-left').textContent = p ? `Rolls left: ${t.rollsLeft}` : '';
+
+    const live = state.inRound && t && !t.done;
+    $('roll').disabled = !live || t.rollsLeft <= 0;
+    $('roll').textContent = live && t.crew ? 'Re-roll cargo' : 'Roll';
+    $('keep').disabled = !live || !t.crew;
+    $('off-table').disabled = !live;
+
+    $('offchance').value = state.offChance;
+    $('offchance-val').textContent = state.offChance + '%';
+    $('add-form').classList.toggle('hidden', state.inRound);
+
+    // Log
+    $('log').innerHTML = '';
+    state.log.forEach((m) => {
+      const li = document.createElement('li');
+      li.textContent = m;
+      $('log').appendChild(li);
+    });
+
+    save();
+  }
+
+  // ---------- Events ----------
+
+  $('add-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = $('new-name').value.trim();
+    if (!name || state.inRound) return;
+    state.players.push({ name, paid: 0, won: 0, score: null });
+    $('new-name').value = '';
+    render();
+  });
+  $('start-round').onclick = startRound;
+  $('roll').onclick = roll;
+  $('keep').onclick = keep;
+  $('off-table').onclick = () => offTable(null);
+  $('offchance').oninput = (e) => { state.offChance = +e.target.value; render(); };
+  $('reset').onclick = () => {
+    if (!confirm('Start a new game? Money totals and the pot will be reset (players are kept).')) return;
+    const players = state.players.map((p) => ({ name: p.name, paid: 0, won: 0, score: null }));
+    const offChance = state.offChance;
+    state = freshState();
+    state.players = players;
+    state.offChance = offChance;
+    render();
+  };
+
+  // A reload mid-turn after the turn ended should still advance.
+  if (state.inRound && state.t && state.t.done) nextTurn();
+  render();
+})();
+</script>
+</body>
+</html>
