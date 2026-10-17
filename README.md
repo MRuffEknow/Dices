@@ -1,24 +1,20 @@
-# 🎲 1-4-24
+# 🎲 1-4-24 Pot Tracker
 
-A browser dice game you can host on GitHub Pages — no build step, just `index.html`.
+A simple page for playing **1-4-24** with real dice. It tracks the pot and what everyone owes until the game is done. It's hosted on GitHub Pages: https://mruffeknow.github.io/Dices/
 
-**House rules:** everyone puts $1 in the pot each round. Roll a die off the table and it's another $1 in the pot.
+## House rules
 
-## How to play
+- Each round everyone antes $1 into the pot.
+- Roll a die off the table and you put another $1 in.
+- Winner takes the pot. On a tie or no qualifier, the pot carries over.
 
-- Roll **six dice**. After every roll you must **keep at least one** die, then roll the rest, until all six are kept.
-- To qualify you need a **1** and a **4** among your kept dice.
-- Your score is the total of the **other four** dice. The best possible hand is 1-4-6-6-6-6 = **24**.
-- A die that flies off the table costs the shooter $1, and that roll doesn't count. The odds are adjustable, and there's a button for real-life spills.
-- High score wins the pot. Ties or no qualifiers carry the pot over to the next round.
+## Using it
 
-Players, money and the pot are saved in your browser (`localStorage`).
+- **New round: everyone antes** adds the ante for every player to the pot.
+- **Off table +$1** on a player charges them the penalty.
+- **🏆 Won pot** gives that player the whole pot.
+- **Tie / no winner** notes that the pot carries over.
+- **Settle up** lists the fewest payments that square everyone up at the end of the night.
+- **Undo** reverses the last tap. Ante and penalty amounts can be changed in Settings.
 
-## Publish on GitHub Pages
-
-1. Merge this branch into `main`.
-2. In the repo go to **Settings → Pages**.
-3. Under **Build and deployment**, choose **Deploy from a branch**, pick `main` and `/ (root)`, then save.
-4. The game will be live at `https://<your-username>.github.io/Dices/` in a minute or two.
-
-To try it locally, just open `index.html` in a browser.
+Everything is saved in the browser on the device you're using, so keep score on one phone.

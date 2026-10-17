@@ -3,21 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>1-4-24 Dice</title>
-<meta name="description" content="1-4-24, the bar dice game. Everyone antes a dollar; roll one off the table and it costs you another.">
+<title>1-4-24 Pot Tracker</title>
+<meta name="description" content="Track the pot and who owes what while you play 1-4-24 with real dice.">
 <style>
   :root {
     --felt: #0f5132;
     --felt-dark: #0a3b24;
-    --rail: #5a3a1e;
     --ink: #f4f1e8;
     --muted: #b9c9bd;
     --gold: #f2c14e;
     --red: #e05a47;
-    --sky: #7cc4ff;
-    --die: #fdfcf7;
-    --pip: #1b1b1b;
+    --green: #a6f0b8;
     --panel: rgba(0, 0, 0, .25);
+    --line: rgba(255, 255, 255, .1);
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; }
@@ -28,194 +26,140 @@
     background: var(--felt-dark) radial-gradient(ellipse at top, var(--felt) 0%, var(--felt-dark) 70%) no-repeat;
     min-height: 100vh;
   }
-  main { max-width: 900px; margin: 0 auto; padding: 16px; }
-  h1 { font-size: 1.6rem; margin: 0 0 4px; letter-spacing: .5px; }
-  h2 { font-size: 1.1rem; margin: 0 0 8px; }
+  main { max-width: 720px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  h2 { font-size: 1.1rem; margin: 0 0 10px; }
   .sub { color: var(--muted); margin: 0 0 16px; }
   .panel { background: var(--panel); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
   button {
     font: inherit; cursor: pointer; border: 0; border-radius: 8px;
-    padding: 10px 16px; background: var(--gold); color: #2a1d00; font-weight: 600;
+    padding: 10px 14px; background: var(--gold); color: #2a1d00; font-weight: 600;
   }
   button.secondary { background: rgba(255,255,255,.15); color: var(--ink); }
   button.danger { background: var(--red); color: #fff; }
+  button.link { background: none; color: var(--muted); padding: 4px 8px; font-weight: 400; }
   button:disabled { opacity: .4; cursor: not-allowed; }
-  input[type=text] {
-    font: inherit; padding: 9px 12px; border-radius: 8px; border: 0; min-width: 0; flex: 1;
+  input[type=text], input[type=number] {
+    font: inherit; padding: 9px 12px; border-radius: 8px; border: 0; min-width: 0;
   }
+  input[type=text] { flex: 1; }
+  input[type=number] { width: 70px; }
   .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
   .spacer { flex: 1; }
+  label { color: var(--muted); }
 
   /* Pot */
-  .pot { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-  .pot .amt { font-size: 2.4rem; font-weight: 800; color: var(--gold); }
-  .pot .note { color: var(--muted); }
-
-  /* Table / dice */
-  .table {
-    border: 10px solid var(--rail); border-radius: 24px;
-    background: radial-gradient(ellipse at center, #17734a, #0d4d2f);
-    padding: 20px 12px; min-height: 150px; position: relative; overflow: hidden;
-  }
-  .dice { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-  .die {
-    width: 58px; height: 58px; background: var(--die); border-radius: 10px;
-    display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); padding: 7px;
-    box-shadow: 0 4px 0 #cfcab8, 0 6px 10px rgba(0,0,0,.4); position: relative;
-    transition: transform .15s; padding-bottom: 7px;
-  }
-  .die .p { width: 11px; height: 11px; border-radius: 50%; background: var(--pip); place-self: center; visibility: hidden; }
-  .die.pickable { cursor: pointer; }
-  .die.pickable:hover { transform: translateY(-3px); }
-  .die.selected { outline: 3px solid var(--sky); outline-offset: 3px; transform: translateY(-4px); }
-  .die.kept { outline: 3px solid var(--gold); outline-offset: 3px; }
-  .die .tag {
-    position: absolute; bottom: -24px; left: 50%; transform: translateX(-50%);
-    font-size: .7rem; text-transform: uppercase; letter-spacing: .5px; color: var(--gold); white-space: nowrap;
-  }
-  .die.selected .tag { color: var(--sky); }
-  .die.blank { background: rgba(255,255,255,.12); box-shadow: none; }
-  .die.rolling { animation: tumble .45s ease-out; }
-  .die.offtable { animation: fly .8s ease-in forwards; }
-  @keyframes tumble {
-    0% { transform: translateY(-30px) rotate(-200deg); }
-    70% { transform: translateY(4px) rotate(10deg); }
-    100% { transform: none; }
-  }
-  @keyframes fly {
-    0% { transform: none; opacity: 1; }
-    100% { transform: translate(260px, -160px) rotate(540deg); opacity: 0; }
-  }
-  .dice-wrap { padding-bottom: 26px; }
-  .status { text-align: center; margin-top: 12px; min-height: 1.5em; font-weight: 600; }
-  .status.bad { color: #ffb4a8; }
-  .status.good { color: var(--gold); }
-  .controls { justify-content: center; margin-top: 14px; }
-  .hint { text-align: center; color: var(--muted); margin-top: 6px; font-size: .9rem; min-height: 1.3em; }
-  .tally { display: flex; justify-content: center; gap: 16px; margin-top: 8px; font-size: .95rem; flex-wrap: wrap; }
-  .tally span { color: var(--muted); }
-  .tally .ok { color: var(--gold); font-weight: 600; }
+  .pot { text-align: center; }
+  .pot .label { color: var(--muted); text-transform: uppercase; letter-spacing: 1px; font-size: .85rem; }
+  .pot .amt { font-size: 3.2rem; font-weight: 800; color: var(--gold); line-height: 1.1; }
+  .pot .note { color: var(--muted); min-height: 1.4em; }
+  .pot .row { justify-content: center; margin-top: 12px; }
 
   /* Players */
-  table.players { width: 100%; border-collapse: collapse; }
-  table.players th, table.players td { padding: 8px 6px; text-align: left; border-bottom: 1px solid rgba(255,255,255,.1); }
-  table.players th { color: var(--muted); font-weight: 500; font-size: .85rem; }
-  table.players td.num, table.players th.num { text-align: right; font-variant-numeric: tabular-nums; }
-  table.players tr.current td { background: rgba(242,193,78,.15); }
+  .player { border-top: 1px solid var(--line); padding: 12px 0; }
+  .player:first-of-type { border-top: 0; padding-top: 0; }
+  .player .top { display: flex; align-items: baseline; gap: 8px; }
+  .player .name { font-weight: 700; font-size: 1.1rem; }
+  .player .net { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; font-size: 1.1rem; }
+  .player .detail { color: var(--muted); font-size: .85rem; margin: 2px 0 8px; }
+  .player .row button { flex: 1; min-width: 120px; }
   .neg { color: #ffb4a8; }
-  .pos { color: #a6f0b8; }
-  .x { background: none; color: var(--muted); padding: 2px 8px; font-weight: 400; }
+  .pos { color: var(--green); }
+  .even { color: var(--muted); }
 
-  .log { max-height: 220px; overflow-y: auto; font-size: .9rem; color: var(--muted); margin: 0; padding-left: 18px; }
+  /* Settle up */
+  .settle li { margin-bottom: 4px; }
+  .settle .amt { font-weight: 700; color: var(--gold); }
+  .empty { color: var(--muted); }
+
+  .log { max-height: 240px; overflow-y: auto; font-size: .9rem; color: var(--muted); margin: 0; padding-left: 30px; }
   .log li { margin-bottom: 2px; }
-  details summary { cursor: pointer; font-weight: 600; }
-  details p, details li { color: var(--muted); }
-  label { color: var(--muted); }
   .hidden { display: none !important; }
 
-  @media (max-width: 480px) {
-    .table { padding: 20px 6px; }
-    .die { width: 40px; height: 40px; padding: 5px; border-radius: 8px; }
-    .die .p { width: 7px; height: 7px; }
-    .dice { gap: 7px; }
-    .pot .amt { font-size: 2rem; }
+  .toast {
+    position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
+    background: #222; color: #fff; padding: 10px 16px; border-radius: 8px; font-size: .95rem;
+    box-shadow: 0 4px 14px rgba(0,0,0,.4); opacity: 0; transition: opacity .2s; pointer-events: none;
+    max-width: calc(100% - 32px); text-align: center;
   }
+  .toast.show { opacity: 1; }
 </style>
 </head>
 <body>
 <main>
-  <h1>🎲 1-4-24</h1>
-  <p class="sub">Everyone antes $1. Roll a die off the table and it's another $1 in the pot.</p>
+  <h1>🎲 1-4-24 Pot Tracker</h1>
+  <p class="sub">Roll the real dice. This keeps track of the pot and who owes what.</p>
 
-  <!-- Setup -->
-  <section class="panel" id="setup">
+  <!-- Pot -->
+  <section class="panel pot">
+    <div class="label">Pot</div>
+    <div class="amt" id="pot">$0</div>
+    <div class="note" id="pot-note"></div>
+    <div class="row">
+      <button id="ante">New round: everyone antes</button>
+      <button id="carry" class="secondary">Tie / no winner: carry pot</button>
+    </div>
+  </section>
+
+  <!-- Players -->
+  <section class="panel">
     <h2>Players</h2>
-    <form class="row" id="add-form">
+    <div id="players"></div>
+    <form class="row" id="add-form" style="margin-top:12px">
       <input type="text" id="new-name" placeholder="Add a player…" maxlength="20" autocomplete="off">
       <button type="submit" class="secondary">Add</button>
     </form>
-    <table class="players" id="players-table" style="margin-top:12px">
-      <thead><tr><th>Player</th><th class="num">Score</th><th class="num">Paid in</th><th class="num">Net $</th><th></th></tr></thead>
-      <tbody></tbody>
-    </table>
-    <div class="row" style="margin-top:12px">
-      <label for="offchance">Chance a die flies off the table:</label>
-      <input type="range" id="offchance" min="0" max="15" step="1" value="3">
-      <span id="offchance-val">3%</span>
-    </div>
   </section>
 
-  <!-- Pot -->
+  <!-- Settle up -->
   <section class="panel">
-    <div class="pot">
-      <span>Pot</span>
-      <span class="amt" id="pot">$0</span>
-      <span class="note" id="pot-note"></span>
+    <h2>Settle up</h2>
+    <div id="settle"></div>
+  </section>
+
+  <!-- Log -->
+  <section class="panel">
+    <div class="row" style="margin-bottom:8px">
+      <h2 style="margin:0">History</h2>
       <span class="spacer"></span>
-      <button id="start-round">Start round (everyone antes $1)</button>
+      <button id="undo" class="secondary">↶ Undo</button>
     </div>
-  </section>
-
-  <!-- Table -->
-  <section class="panel" id="play">
-    <h2 id="turn-title">Add at least two players, then start a round.</h2>
-    <div class="table">
-      <div class="dice-wrap"><div class="dice" id="dice"></div></div>
-      <div class="tally" id="tally"></div>
-      <div class="status" id="status"></div>
-      <div class="hint" id="hint"></div>
-      <div class="row controls">
-        <button id="roll" disabled>Roll</button>
-        <button id="off-table" class="danger" disabled title="Playing with real dice? Charge the shooter $1 when one leaves the table.">Rolled off table! +$1</button>
-      </div>
-    </div>
-  </section>
-
-  <section class="panel">
-    <h2>Game log</h2>
     <ol class="log" id="log" reversed></ol>
-    <div class="row" style="margin-top:12px">
-      <span class="spacer"></span>
-      <button id="reset" class="secondary">New game (reset money)</button>
-    </div>
   </section>
 
+  <!-- Settings -->
   <section class="panel">
-    <details>
-      <summary>How to play</summary>
-      <ul>
-        <li>At the start of every round each player puts <strong>$1</strong> in the pot.</li>
-        <li>On your turn you roll <strong>six dice</strong>. After every roll you must <strong>keep at least one</strong> die (tap to pick), then roll the rest. Kept dice stay kept.</li>
-        <li>Keep going until all six dice are kept.</li>
-        <li>To qualify you need a <strong>1</strong> and a <strong>4</strong> among your kept dice. Your score is the total of the <strong>other four</strong> dice, so the best possible hand is 1, 4, 6, 6, 6, 6 = <strong>24</strong>.</li>
-        <li>No 1 or no 4 means you don't qualify.</li>
-        <li>If a die rolls <strong>off the table</strong>, you put another <strong>$1</strong> in the pot and that roll doesn't count. Roll again.</li>
-        <li>High score takes the pot. A tie or nobody qualifying means the pot <strong>carries over</strong> to the next round.</li>
-      </ul>
-    </details>
+    <h2>Settings</h2>
+    <div class="row">
+      <label for="ante-amt">Ante $</label>
+      <input type="number" id="ante-amt" min="1" step="1">
+      <label for="pen-amt">Off-table $</label>
+      <input type="number" id="pen-amt" min="1" step="1">
+    </div>
+    <div class="row" style="margin-top:14px">
+      <button id="reset" class="danger">End game &amp; start over</button>
+    </div>
   </section>
 </main>
+<div class="toast" id="toast"></div>
 
 <script>
 (() => {
-  const NUM_DICE = 6;
-  const STORE_KEY = 'dice-1424-v1';
-  const PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
-
+  const STORE_KEY = 'dice-pot-tracker-v1';
   const $ = (id) => document.getElementById(id);
 
   let state = load() || freshState();
+  let history = [];   // snapshots for undo (this session only)
 
   function freshState() {
     return {
-      players: [],         // { name, paid, won, score }  score: null = not yet, 0 = didn't qualify
+      players: [],     // { id, name, paid, won }
       pot: 0,
-      carried: false,
-      inRound: false,
-      turn: 0,
-      offChance: 3,
+      round: 0,
+      ante: 1,
+      penalty: 1,
       log: [],
-      t: null,             // current turn: { dice, kept, selected, rolled, done, msg, msgClass }
+      nextId: 1,
     };
   }
 
@@ -227,284 +171,168 @@
   }
 
   const money = (n) => (n < 0 ? '-$' : '$') + Math.abs(n);
-  function log(msg) {
+  const net = (p) => p.won - p.paid;
+
+  // Every change goes through here so it can be undone.
+  function act(msg, fn) {
+    history.push(JSON.stringify(state));
+    history = history.slice(-100);
+    fn();
     state.log.unshift(msg);
-    state.log = state.log.slice(0, 200);
-  }
-
-  // ---------- Scoring ----------
-
-  // Which kept indices count as the qualifying 1 and 4, plus the running points.
-  function evaluate(values) {
-    const one = values.findIndex((v) => v === 1);
-    const four = values.findIndex((v) => v === 4);
-    const points = values.reduce((s, v, i) => (i === one || i === four ? s : s + v), 0);
-    return { hasOne: one >= 0, hasFour: four >= 0, points, oneAt: one, fourAt: four };
-  }
-
-  // ---------- Rounds & turns ----------
-
-  function startRound() {
-    if (state.players.length < 2) return;
-    state.players.forEach((p) => { p.paid += 1; p.score = null; });
-    state.pot += state.players.length;
-    log(`New round. Everyone antes $1. Pot is ${money(state.pot)}.`);
-    state.inRound = true;
-    state.turn = 0;
-    newTurn();
+    state.log = state.log.slice(0, 300);
     render();
+    toast(msg);
   }
 
-  function newTurn() {
-    state.t = {
-      dice: Array(NUM_DICE).fill(0),
-      kept: Array(NUM_DICE).fill(false),
-      selected: Array(NUM_DICE).fill(false),
-      rolled: false, done: false,
-      msg: `${current().name}, you're up. Roll all six!`, msgClass: '',
-    };
-  }
-
-  const current = () => state.players[state.turn];
-  const freeIdx = (t) => t.kept.map((k, i) => (k ? -1 : i)).filter((i) => i >= 0);
-
-  function roll() {
-    const t = state.t;
-    if (!state.inRound || t.done) return;
-
-    // Lock in what was picked from the last roll.
-    if (t.rolled) {
-      if (!t.selected.some(Boolean)) return;
-      t.selected.forEach((s, i) => { if (s) t.kept[i] = true; });
-      t.selected.fill(false);
-      if (t.kept.every(Boolean)) return finishTurn();
-    }
-
-    const free = freeIdx(t);
-    const flew = free.filter(() => Math.random() * 100 < state.offChance);
-    if (flew.length) {
-      t.rolled = false;   // this roll doesn't count; they roll the same dice again
-      offTable(flew);
-      return;
-    }
-
-    free.forEach((i) => { t.dice[i] = 1 + Math.floor(Math.random() * 6); });
-    t.rolled = true;
-
-    if (free.length === 1) {
-      // Last die has to be kept.
-      t.kept[free[0]] = true;
-      return finishTurn(free);
-    }
-
-    t.msg = 'Tap the dice you want to keep (at least one).';
-    t.msgClass = '';
-    render(free);
-  }
-
-  function toggle(i) {
-    const t = state.t;
-    if (!state.inRound || !t || t.done || !t.rolled || t.kept[i]) return;
-    t.selected[i] = !t.selected[i];
+  function undo() {
+    if (!history.length) return;
+    const undone = state.log[0];
+    state = JSON.parse(history.pop());
     render();
+    toast('Undid: ' + undone);
   }
 
-  function finishTurn(rolled) {
-    const t = state.t;
-    const p = current();
-    const e = evaluate(t.dice);
-    t.done = true;
-    if (e.hasOne && e.hasFour) {
-      p.score = e.points;
-      t.msg = e.points === 24 ? `💥 Perfect 24!` : `${p.name} qualifies with ${e.points}.`;
-      t.msgClass = 'good';
-      log(`${p.name} scored ${e.points} (${t.dice.join('-')}).`);
-    } else {
-      p.score = 0;
-      const missing = [!e.hasOne && '1', !e.hasFour && '4'].filter(Boolean).join(' and ');
-      t.msg = `No ${missing}. ${p.name} doesn't qualify.`;
-      t.msgClass = 'bad';
-      log(`${p.name} didn't qualify (${t.dice.join('-')}).`);
-    }
-    render(rolled);
-    setTimeout(nextTurn, 1600);
+  let toastTimer;
+  function toast(msg) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
   }
 
-  function offTable(flewIdx) {
-    const p = current();
-    const n = flewIdx ? flewIdx.length : 1;
-    p.paid += n;
-    state.pot += n;
-    const what = n === 1 ? 'A die' : `${n} dice`;
-    state.t.msg = `${what} flew off the table! ${p.name} puts ${money(n)} in the pot. Roll again.`;
-    state.t.msgClass = 'bad';
-    log(`${p.name} rolled ${n === 1 ? 'a die' : n + ' dice'} off the table (+${money(n)}). Pot is ${money(state.pot)}.`);
-    render(null, flewIdx);
+  // ---------- Actions ----------
+
+  function anteUp() {
+    if (!state.players.length) return;
+    const carried = state.pot;
+    act(`Round ${state.round + 1}: everyone antes ${money(state.ante)}.` + (carried ? ` (${money(carried)} carried over)` : ''), () => {
+      state.round += 1;
+      state.players.forEach((p) => { p.paid += state.ante; });
+      state.pot += state.ante * state.players.length;
+    });
   }
 
-  function nextTurn() {
-    if (!state.inRound) return;
-    if (state.turn < state.players.length - 1) {
-      state.turn += 1;
-      newTurn();
-    } else {
-      finishRound();
-    }
-    render();
+  function offTable(p) {
+    act(`${p.name} rolled one off the table: +${money(state.penalty)} to the pot.`, () => {
+      p.paid += state.penalty;
+      state.pot += state.penalty;
+    });
   }
 
-  function finishRound() {
-    state.inRound = false;
-    const best = Math.max(...state.players.map((p) => p.score || 0));
-    const winners = state.players.filter((p) => best > 0 && p.score === best);
-    if (winners.length === 1) {
-      const w = winners[0];
-      w.won += state.pot;
-      log(`🏆 ${w.name} wins ${money(state.pot)} with ${best}!`);
-      state.t.msg = `🏆 ${w.name} wins ${money(state.pot)}!`;
-      state.t.msgClass = 'good';
+  function wins(p) {
+    if (!state.pot) return;
+    act(`🏆 ${p.name} wins the ${money(state.pot)} pot.`, () => {
+      p.won += state.pot;
       state.pot = 0;
-      state.carried = false;
-    } else {
-      const why = best === 0 ? 'Nobody qualified' : `Tie at ${best} (${winners.map((w) => w.name).join(', ')})`;
-      log(`${why}. Pot of ${money(state.pot)} carries over.`);
-      state.t.msg = `${why}. The pot carries over!`;
-      state.t.msgClass = '';
-      state.carried = true;
+    });
+  }
+
+  function carry() {
+    if (!state.pot) return;
+    act(`No winner: ${money(state.pot)} pot carries over.`, () => {});
+  }
+
+  function addPlayer(name) {
+    act(`${name} joined.`, () => {
+      state.players.push({ id: state.nextId++, name, paid: 0, won: 0 });
+    });
+  }
+
+  function removePlayer(p) {
+    const n = net(p);
+    const msg = n
+      ? `Remove ${p.name}? They're ${n < 0 ? 'down' : 'up'} ${money(Math.abs(n))}, which will drop out of Settle up.`
+      : `Remove ${p.name}?`;
+    if (!confirm(msg)) return;
+    act(`${p.name} left (${n < 0 ? 'down' : 'up'} ${money(Math.abs(n))}).`, () => {
+      state.players = state.players.filter((x) => x.id !== p.id);
+    });
+  }
+
+  // Minimal list of payments that squares everyone up.
+  // Money still in the pot isn't anyone's yet, so it's left out.
+  function settlements() {
+    const debtors = state.players.filter((p) => net(p) < 0).map((p) => ({ name: p.name, amt: -net(p) }));
+    const creditors = state.players.filter((p) => net(p) > 0).map((p) => ({ name: p.name, amt: net(p) }));
+    debtors.sort((a, b) => b.amt - a.amt);
+    creditors.sort((a, b) => b.amt - a.amt);
+    const out = [];
+    let i = 0, j = 0;
+    while (i < debtors.length && j < creditors.length) {
+      const amt = Math.min(debtors[i].amt, creditors[j].amt);
+      out.push({ from: debtors[i].name, to: creditors[j].name, amt });
+      debtors[i].amt -= amt;
+      creditors[j].amt -= amt;
+      if (!debtors[i].amt) i++;
+      if (!creditors[j].amt) j++;
     }
-    // Rotate who shoots first next round.
-    state.players.push(state.players.shift());
+    return out;
   }
 
   // ---------- Rendering ----------
 
-  function dieEl(value, cls, tag) {
-    const d = document.createElement('div');
-    d.className = 'die' + (value ? '' : ' blank') + (cls ? ' ' + cls : '');
-    for (let i = 0; i < 9; i++) {
-      const p = document.createElement('span');
-      p.className = 'p';
-      if (value && PIPS[value].includes(i)) p.style.visibility = 'visible';
-      d.appendChild(p);
-    }
-    if (tag) {
-      const s = document.createElement('span');
-      s.className = 'tag';
-      s.textContent = tag;
-      d.appendChild(s);
-    }
-    return d;
+  function el(tag, props, ...kids) {
+    const e = document.createElement(tag);
+    Object.assign(e, props);
+    kids.forEach((k) => e.append(k));
+    return e;
   }
 
-  function render(rolled, flew) {
-    // Players
-    const tbody = $('players-table').tBodies[0];
-    tbody.innerHTML = '';
-    state.players.forEach((p, i) => {
-      const tr = document.createElement('tr');
-      if (state.inRound && i === state.turn) tr.className = 'current';
-      const net = p.won - p.paid;
-      const cells = [
-        p.name + (state.inRound && i === state.turn ? ' 🎲' : ''),
-        p.score == null ? '–' : p.score || '✗',
-        money(p.paid),
-        money(net),
-      ];
-      cells.forEach((c, ci) => {
-        const td = document.createElement('td');
-        td.textContent = c;
-        if (ci > 0) td.className = 'num';
-        if (ci === 3) td.classList.add(net < 0 ? 'neg' : net > 0 ? 'pos' : 'x');
-        tr.appendChild(td);
-      });
-      const td = document.createElement('td');
-      td.className = 'num';
-      if (!state.inRound) {
-        const rm = document.createElement('button');
-        rm.className = 'x';
-        rm.textContent = '✕';
-        rm.title = `Remove ${p.name}`;
-        rm.onclick = () => { state.players.splice(i, 1); save(); render(); };
-        td.appendChild(rm);
-      }
-      tr.appendChild(td);
-      tbody.appendChild(tr);
-    });
-
-    // Pot
+  function render() {
     $('pot').textContent = money(state.pot);
-    $('pot-note').textContent = state.carried && state.pot ? 'carried over' : '';
-    $('start-round').disabled = state.inRound || state.players.length < 2;
-    $('start-round').textContent = state.players.length < 2
-      ? 'Need at least 2 players'
-      : 'Start round (everyone antes $1)';
+    $('pot-note').textContent = state.round
+      ? `Round ${state.round} · ${state.players.length} player${state.players.length === 1 ? '' : 's'}`
+      : state.players.length ? 'Tap "New round" to collect the first ante.' : 'Add players to get started.';
+    $('ante').textContent = `New round: everyone antes ${money(state.ante)}`;
+    $('ante').disabled = !state.players.length;
+    $('carry').disabled = !state.pot;
 
-    // Dice
-    const t = state.t;
-    const diceBox = $('dice');
-    diceBox.innerHTML = '';
-    const dice = t ? t.dice : Array(NUM_DICE).fill(0);
-    const held = t ? dice.map((v, i) => (t.kept[i] || t.selected[i] ? v : 0)) : dice.map(() => 0);
-    const e = evaluate(held);
-    const live = state.inRound && t && !t.done;
-    dice.forEach((v, i) => {
-      const cls = [];
-      if (t && t.kept[i]) cls.push('kept');
-      else if (t && t.selected[i]) cls.push('selected');
-      else if (live && t.rolled) cls.push('pickable');
-      if (flew && flew.includes(i)) cls.push('offtable');
-      else if (rolled && rolled.includes(i)) cls.push('rolling');
-      let tag = '';
-      if (i === e.oneAt) tag = 'the 1';
-      else if (i === e.fourAt) tag = 'the 4';
-      else if (held[i]) tag = '+' + v;
-      const shown = flew && flew.includes(i) && !v ? 1 + Math.floor(Math.random() * 6) : v;
-      const el = dieEl(shown, cls.join(' '), tag);
-      el.onclick = () => toggle(i);
-      diceBox.appendChild(el);
+    // Players
+    const box = $('players');
+    box.innerHTML = '';
+    if (!state.players.length) box.append(el('p', { className: 'empty', textContent: 'No players yet.' }));
+    state.players.forEach((p) => {
+      const n = net(p);
+      const netText = n < 0 ? `owes ${money(-n)}` : n > 0 ? `up ${money(n)}` : 'even';
+      box.append(el('div', { className: 'player' },
+        el('div', { className: 'top' },
+          el('span', { className: 'name', textContent: p.name }),
+          el('button', { className: 'link', textContent: '✕', title: `Remove ${p.name}`, onclick: () => removePlayer(p) }),
+          el('span', { className: 'net ' + (n < 0 ? 'neg' : n > 0 ? 'pos' : 'even'), textContent: netText }),
+        ),
+        el('div', { className: 'detail', textContent: `Put in ${money(p.paid)} · Won ${money(p.won)}` }),
+        el('div', { className: 'row' },
+          el('button', { className: 'danger', textContent: `Off table +${money(state.penalty)}`, onclick: () => offTable(p) }),
+          el('button', { textContent: `🏆 Won pot`, disabled: !state.pot, onclick: () => wins(p) }),
+        ),
+      ));
     });
 
-    // Tally of what's held so far
-    const tally = $('tally');
-    tally.innerHTML = '';
-    if (t && held.some(Boolean)) {
-      [
-        [e.hasOne ? '1 ✓' : 'need a 1', e.hasOne],
-        [e.hasFour ? '4 ✓' : 'need a 4', e.hasFour],
-        [`points: ${e.points}`, false],
-      ].forEach(([txt, ok]) => {
-        const s = document.createElement('span');
-        s.textContent = txt;
-        if (ok) s.className = 'ok';
-        tally.appendChild(s);
-      });
+    // Settle up
+    const s = $('settle');
+    s.innerHTML = '';
+    const pays = settlements();
+    if (!pays.length) {
+      s.append(el('p', { className: 'empty', textContent: 'Nobody owes anybody yet.' }));
+    } else {
+      const ul = el('ul', { className: 'settle' });
+      pays.forEach((x) => ul.append(el('li', {},
+        `${x.from} pays ${x.to} `, el('span', { className: 'amt', textContent: money(x.amt) }))));
+      s.append(ul);
+    }
+    if (state.pot) {
+      s.append(el('p', { className: 'empty', textContent: `${money(state.pot)} is still in the pot. It's counted against whoever put it in until someone wins it.` }));
     }
 
-    const p = state.inRound ? current() : null;
-    $('turn-title').textContent = p
-      ? `${p.name}'s turn`
-      : state.players.length < 2 ? 'Add at least two players, then start a round.' : 'Ready when you are. Start a round.';
-    $('status').textContent = t ? t.msg : '';
-    $('status').className = 'status ' + (t ? t.msgClass : '');
-
-    const picked = live && t.selected.some(Boolean);
-    const allHeld = live && t.kept.every((k, i) => k || t.selected[i]);
-    $('hint').textContent = live && t.rolled && !picked ? 'You must keep at least one die before rolling again.' : '';
-    $('roll').disabled = !live || (t.rolled && !picked);
-    $('roll').textContent = !live || !t.rolled ? 'Roll' : allHeld ? 'Keep all & score' : 'Keep & roll the rest';
-    $('off-table').disabled = !live;
-
-    $('offchance').value = state.offChance;
-    $('offchance-val').textContent = state.offChance + '%';
-    $('add-form').classList.toggle('hidden', state.inRound);
-
     // Log
-    $('log').innerHTML = '';
-    state.log.forEach((m) => {
-      const li = document.createElement('li');
-      li.textContent = m;
-      $('log').appendChild(li);
-    });
+    const log = $('log');
+    log.innerHTML = '';
+    state.log.forEach((m) => log.append(el('li', { textContent: m })));
+    $('undo').disabled = !history.length;
+
+    $('ante-amt').value = state.ante;
+    $('pen-amt').value = state.penalty;
 
     save();
   }
@@ -514,27 +342,24 @@
   $('add-form').addEventListener('submit', (e) => {
     e.preventDefault();
     const name = $('new-name').value.trim();
-    if (!name || state.inRound) return;
-    state.players.push({ name, paid: 0, won: 0, score: null });
+    if (!name) return;
     $('new-name').value = '';
-    render();
+    addPlayer(name);
   });
-  $('start-round').onclick = startRound;
-  $('roll').onclick = roll;
-  $('off-table').onclick = () => offTable(null);
-  $('offchance').oninput = (e) => { state.offChance = +e.target.value; render(); };
+  $('ante').onclick = anteUp;
+  $('carry').onclick = carry;
+  $('undo').onclick = undo;
+  $('ante-amt').onchange = (e) => { state.ante = Math.max(1, Math.round(+e.target.value) || 1); render(); };
+  $('pen-amt').onchange = (e) => { state.penalty = Math.max(1, Math.round(+e.target.value) || 1); render(); };
   $('reset').onclick = () => {
-    if (!confirm('Start a new game? Money totals and the pot will be reset (players are kept).')) return;
-    const players = state.players.map((p) => ({ name: p.name, paid: 0, won: 0, score: null }));
-    const offChance = state.offChance;
-    state = freshState();
-    state.players = players;
-    state.offChance = offChance;
-    render();
+    if (!confirm('End this game and start over? The pot and everyone\'s totals will be cleared. Players are kept.')) return;
+    act('New game started.', () => {
+      const keep = state.players.map((p) => ({ ...p, paid: 0, won: 0 }));
+      const { ante, penalty, nextId } = state;
+      state = Object.assign(freshState(), { players: keep, ante, penalty, nextId });
+    });
   };
 
-  // A reload after a turn ended should still advance.
-  if (state.inRound && state.t && state.t.done) nextTurn();
   render();
 })();
 </script>
