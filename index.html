@@ -67,6 +67,21 @@
   .pos { color: var(--green); }
   .even { color: var(--muted); }
 
+  .player select { font: inherit; padding: 8px 10px; border-radius: 8px; border: 0; }
+  .player .score-row { margin-bottom: 8px; }
+  .player.leader .name::after { content: ' 👑'; }
+
+  /* Scoreboard */
+  .board-wrap { overflow-x: auto; }
+  table.board { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  table.board th, table.board td { padding: 8px 6px; text-align: center; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  table.board th { color: var(--muted); font-weight: 500; font-size: .85rem; }
+  table.board th:first-child, table.board td:first-child { text-align: left; color: var(--muted); }
+  table.board td.cell { cursor: pointer; }
+  table.board td.win { color: var(--gold); font-weight: 700; }
+  table.board td.dq { color: #ffb4a8; }
+  table.board tfoot td { font-weight: 700; border-bottom: 0; }
+
   /* Settle up */
   .settle li { margin-bottom: 4px; }
   .settle .amt { font-weight: 700; color: var(--gold); }
@@ -88,7 +103,7 @@
 <body>
 <main>
   <h1>🎲 1-4-24 Pot Tracker</h1>
-  <p class="sub">Roll the real dice. This keeps track of the pot and who owes what.</p>
+  <p class="sub">Roll the real dice. This keeps track of scores, the pot and who owes what.</p>
 
   <!-- Pot -->
   <section class="panel pot">
@@ -109,6 +124,12 @@
       <input type="text" id="new-name" placeholder="Add a player…" maxlength="20" autocomplete="off">
       <button type="submit" class="secondary">Add</button>
     </form>
+  </section>
+
+  <!-- Scoreboard -->
+  <section class="panel">
+    <h2>Scores by round</h2>
+    <div class="board-wrap" id="board"></div>
   </section>
 
   <!-- Settle up -->
@@ -149,6 +170,7 @@
   const $ = (id) => document.getElementById(id);
 
   let state = load() || freshState();
+  state.rounds = state.rounds || [];
   let history = [];   // snapshots for undo (this session only)
 
   function freshState() {
@@ -160,6 +182,7 @@
       penalty: 1,
       log: [],
       nextId: 1,
+      rounds: [],      // { n, scores: { [playerId]: 0 (no 1-4) | 4..24 }, winner: playerId | null, carried }
     };
   }
 
@@ -172,6 +195,8 @@
 
   const money = (n) => (n < 0 ? '-$' : '$') + Math.abs(n);
   const net = (p) => p.won - p.paid;
+  const curRound = () => state.rounds[state.rounds.length - 1];
+  const scoreText = (v) => (v === undefined ? '–' : v === 0 ? '✗' : String(v));
 
   // Every change goes through here so it can be undone.
   function act(msg, fn) {
@@ -208,6 +233,7 @@
     const carried = state.pot;
     act(`Round ${state.round + 1}: everyone antes ${money(state.ante)}.` + (carried ? ` (${money(carried)} carried over)` : ''), () => {
       state.round += 1;
+      state.rounds.push({ n: state.round, scores: {}, winner: null, carried: false });
       state.players.forEach((p) => { p.paid += state.ante; });
       state.pot += state.ante * state.players.length;
     });
@@ -225,12 +251,53 @@
     act(`🏆 ${p.name} wins the ${money(state.pot)} pot.`, () => {
       p.won += state.pot;
       state.pot = 0;
+      const r = curRound();
+      if (r) { r.winner = p.id; r.carried = false; }
     });
   }
 
   function carry() {
     if (!state.pot) return;
-    act(`No winner: ${money(state.pot)} pot carries over.`, () => {});
+    act(`No winner: ${money(state.pot)} pot carries over.`, () => {
+      const r = curRound();
+      if (r) r.carried = true;
+    });
+  }
+
+  // score: 0 = no 1-4, 4..24, or undefined to clear.
+  function setScore(round, p, score) {
+    if (round.scores[p.id] === score) return;
+    const what = score === undefined ? 'cleared' : score === 0 ? 'no 1-4' : score;
+    act(`Round ${round.n}: ${p.name} ${what}.`, () => {
+      if (score === undefined) delete round.scores[p.id];
+      else round.scores[p.id] = score;
+    });
+  }
+
+  function parseScore(text) {
+    const t = String(text).trim().toLowerCase();
+    if (!t || t === '-' || t === '–') return undefined;
+    if (t === 'x' || t === '✗' || t === '0') return 0;
+    const n = Math.round(+t);
+    return n >= 4 && n <= 24 ? n : null;
+  }
+
+  function editCell(round, p) {
+    const cur = round.scores[p.id];
+    const input = prompt(`Round ${round.n}: ${p.name}'s score (4–24, x for no 1-4, blank to clear)`,
+      cur === undefined ? '' : cur === 0 ? 'x' : cur);
+    if (input === null) return;
+    const v = parseScore(input);
+    if (v === null) { toast('Scores run from 4 to 24, or x for no 1-4.'); return; }
+    setScore(round, p, v);
+  }
+
+  // Top score in a round, and who has it.
+  function leaders(round) {
+    if (!round) return { best: 0, ids: [] };
+    const best = Math.max(0, ...Object.values(round.scores));
+    const ids = best ? state.players.filter((p) => round.scores[p.id] === best).map((p) => p.id) : [];
+    return { best, ids };
   }
 
   function addPlayer(name) {
@@ -280,10 +347,17 @@
   }
 
   function render() {
+    const round = curRound();
+    const lead = leaders(round);
+    const open = round && !round.winner && !round.carried;
     $('pot').textContent = money(state.pot);
-    $('pot-note').textContent = state.round
-      ? `Round ${state.round} · ${state.players.length} player${state.players.length === 1 ? '' : 's'}`
-      : state.players.length ? 'Tap "New round" to collect the first ante.' : 'Add players to get started.';
+    let note = state.players.length ? 'Tap "New round" to collect the first ante.' : 'Add players to get started.';
+    if (state.round) {
+      note = `Round ${state.round} · ${state.players.length} player${state.players.length === 1 ? '' : 's'}`;
+      if (open && lead.ids.length === 1) note += ` · High: ${state.players.find((p) => p.id === lead.ids[0]).name} ${lead.best}`;
+      else if (open && lead.ids.length > 1) note += ` · Tied at ${lead.best}`;
+    }
+    $('pot-note').textContent = note;
     $('ante').textContent = `New round: everyone antes ${money(state.ante)}`;
     $('ante').disabled = !state.players.length;
     $('carry').disabled = !state.pot;
@@ -295,19 +369,27 @@
     state.players.forEach((p) => {
       const n = net(p);
       const netText = n < 0 ? `owes ${money(-n)}` : n > 0 ? `up ${money(n)}` : 'even';
-      box.append(el('div', { className: 'player' },
+      const scoreRow = round ? el('div', { className: 'row score-row' },
+        el('label', { textContent: `Round ${round.n} score`, htmlFor: `score-${p.id}` }),
+        scoreSelect(round, p),
+      ) : '';
+      const isLeader = open && lead.ids.length === 1 && lead.ids[0] === p.id;
+      box.append(el('div', { className: 'player' + (isLeader ? ' leader' : '') },
         el('div', { className: 'top' },
           el('span', { className: 'name', textContent: p.name }),
           el('button', { className: 'link', textContent: '✕', title: `Remove ${p.name}`, onclick: () => removePlayer(p) }),
           el('span', { className: 'net ' + (n < 0 ? 'neg' : n > 0 ? 'pos' : 'even'), textContent: netText }),
         ),
-        el('div', { className: 'detail', textContent: `Put in ${money(p.paid)} · Won ${money(p.won)}` }),
+        el('div', { className: 'detail', textContent: `Put in ${money(p.paid)} · Won ${money(p.won)} · Rounds won ${roundsWon(p)}` }),
+        scoreRow,
         el('div', { className: 'row' },
           el('button', { className: 'danger', textContent: `Off table +${money(state.penalty)}`, onclick: () => offTable(p) }),
           el('button', { textContent: `🏆 Won pot`, disabled: !state.pot, onclick: () => wins(p) }),
         ),
       ));
     });
+
+    renderBoard();
 
     // Settle up
     const s = $('settle');
@@ -335,6 +417,50 @@
     $('pen-amt').value = state.penalty;
 
     save();
+  }
+
+  function roundsWon(p) {
+    return state.rounds.filter((r) => r.winner === p.id).length;
+  }
+
+  function scoreSelect(round, p) {
+    const sel = el('select', { id: `score-${p.id}` });
+    sel.append(el('option', { value: '', textContent: '–' }));
+    sel.append(el('option', { value: 'x', textContent: '✗ no 1-4' }));
+    for (let v = 24; v >= 4; v--) sel.append(el('option', { value: String(v), textContent: String(v) }));
+    const cur = round.scores[p.id];
+    sel.value = cur === undefined ? '' : cur === 0 ? 'x' : String(cur);
+    sel.onchange = () => setScore(round, p, parseScore(sel.value));
+    return sel;
+  }
+
+  function renderBoard() {
+    const box = $('board');
+    box.innerHTML = '';
+    if (!state.rounds.length || !state.players.length) {
+      box.append(el('p', { className: 'empty', textContent: 'Scores show up here once a round starts.' }));
+      return;
+    }
+    const head = el('tr', {}, el('th', { textContent: 'Round' }));
+    state.players.forEach((p) => head.append(el('th', { textContent: p.name })));
+    const body = el('tbody');
+    [...state.rounds].reverse().forEach((r) => {
+      const tr = el('tr', {}, el('td', { textContent: r.n + (r.carried ? ' ↻' : ''), title: r.carried ? 'Pot carried over' : '' }));
+      state.players.forEach((p) => {
+        const v = r.scores[p.id];
+        const win = r.winner === p.id;
+        tr.append(el('td', {
+          className: 'cell' + (win ? ' win' : v === 0 ? ' dq' : ''),
+          textContent: (win ? '🏆 ' : '') + scoreText(v),
+          title: 'Tap to edit',
+          onclick: () => editCell(r, p),
+        }));
+      });
+      body.append(tr);
+    });
+    const foot = el('tr', {}, el('td', { textContent: 'Wins' }));
+    state.players.forEach((p) => foot.append(el('td', { textContent: roundsWon(p) })));
+    box.append(el('table', { className: 'board' }, el('thead', {}, head), body, el('tfoot', {}, foot)));
   }
 
   // ---------- Events ----------

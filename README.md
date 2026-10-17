@@ -10,6 +10,8 @@ A simple page for playing **1-4-24** with real dice. It tracks the pot and what 
 
 ## Using it
 
+- **Round score** under each player: pick their 1-4-24 score (4–24) or ✗ if they missed the 1 or 4. The current high score gets a 👑.
+- **Scores by round** shows every round's scores, the winner (🏆), carried pots (↻) and round wins. Tap any score to fix it.
 - **New round: everyone antes** adds the ante for every player to the pot.
 - **Off table +$1** on a player charges them the penalty.
 - **🏆 Won pot** gives that player the whole pot.
